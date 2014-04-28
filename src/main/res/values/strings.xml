@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="hello">Hello World, PhotoIntentActivity!</string>
+    <string name="app_name">OpenCV Face</string>
+    <string name="btnIntend">Take (big) Picture</string>
+    <string name="btnIntendS">Take Picture</string>
+    <string name="btnIntendV">Take Video</string>
+    <string name="cannot">Cannot</string>
+    <string name="album_name">Faces</string>
+    <string name="default_ipaddress">192.168.168.194</string>
+    <string name="default_portnumber">6789</string>
+    <string name="pref_ipaddress">ipaddress</string>
+    <string name="pref_portnumber">portnumber</string>
+</resources>
