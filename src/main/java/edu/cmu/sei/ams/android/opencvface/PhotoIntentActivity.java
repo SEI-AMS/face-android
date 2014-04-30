@@ -32,13 +32,11 @@ import android.preference.PreferenceManager;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
-import android.widget.Button;
-import android.widget.ImageView;
-import android.widget.TextView;
-import android.widget.VideoView;
+import android.widget.*;
 import edu.cmu.sei.ams.cloudlet.Cloudlet;
 import edu.cmu.sei.ams.cloudlet.ServiceVM;
 import edu.cmu.sei.ams.cloudlet.android.CloudletCallback;
+import edu.cmu.sei.ams.cloudlet.android.FindCloudletAndStartService;
 import edu.cmu.sei.ams.cloudlet.android.FindCloudletByRankAsyncTask;
 import edu.cmu.sei.ams.cloudlet.android.StartServiceAsyncTask;
 import edu.cmu.sei.ams.cloudlet.rank.CpuBasedRanker;
@@ -281,35 +279,29 @@ public class PhotoIntentActivity extends Activity {
         }
         else
         {
-            new FindCloudletByRankAsyncTask(this, "edu.cmu.sei.ams.face_rec_service_opencv", new CpuBasedRanker(), new CloudletCallback<Cloudlet>()
+
+            new FindCloudletAndStartService(this, "edu.cmu.sei.ams.face_rec_service_opencv", new CpuBasedRanker(), new CloudletCallback<ServiceVM>()
             {
                 @Override
-                public void handle(Cloudlet result)
+                public void handle(ServiceVM result)
                 {
-                    try
+                    Log.v("FACE", "GOT SERVICE RESULT: " + result.getInstanceId());
+
+                    if (result == null)
                     {
-                        new StartServiceAsyncTask(result.getServiceById("edu.cmu.sei.ams.face_rec_service_opencv"), PhotoIntentActivity.this, new CloudletCallback<ServiceVM>()
-                        {
-                            @Override
-                            public void handle(ServiceVM result)
-                            {
-                                SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(PhotoIntentActivity.this);
-                                SharedPreferences.Editor prefsEditor = prefs.edit();
-                                prefsEditor.putString(PhotoIntentActivity.this.getString(R.string.pref_ipaddress), result.getAddress().getHostAddress());
-                                prefsEditor.putString(PhotoIntentActivity.this.getString(R.string.pref_portnumber), "" + result.getPort());
-                                prefsEditor.commit();
-                                loadPreferences();
-                            }
-                        }).execute();
+                        Toast.makeText(PhotoIntentActivity.this, "Failed to locate a cloudlet for this app", Toast.LENGTH_LONG).show();
+                        return;
                     }
-                    catch (Exception e)
-                    {
-                        Log.v("FACE", "Error Starting Service", e);
-                    }
+                    Toast.makeText(PhotoIntentActivity.this, "Located a cloudlet to use!", Toast.LENGTH_LONG).show();
+                    SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(PhotoIntentActivity.this);
+                    SharedPreferences.Editor prefsEditor = prefs.edit();
+                    prefsEditor.putString(PhotoIntentActivity.this.getString(R.string.pref_ipaddress), result.getAddress().getHostAddress());
+                    prefsEditor.putString(PhotoIntentActivity.this.getString(R.string.pref_portnumber), "" + result.getPort());
+                    prefsEditor.commit();
+                    loadPreferences();
                 }
             }).execute();
         }
-		//loadPreferences();
 	}
 	
 	public void loadPreferences()
