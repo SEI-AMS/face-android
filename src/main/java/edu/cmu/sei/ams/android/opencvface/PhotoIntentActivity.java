@@ -219,12 +219,17 @@ public class PhotoIntentActivity extends Activity {
 	    	byte[] imgBytes = codec(bitmap, Bitmap.CompressFormat.JPEG, 85);
 	    	
 	    	// Write the image.
+            long dataSendStart = System.currentTimeMillis();
+            Log.d("Photo", "Sending image");
 		    outToServer.writeInt(imgBytes.length);
 		    outToServer.write(imgBytes);
 		    
 		    // Read the name.
 		    modifiedSentence = inFromServer.readLine();
+            Log.d("Photo", "Received result from server.");
 	    	Log.v("Photo", "FROM SERVER 2 : " + modifiedSentence);
+            long dataReceiveEnd = System.currentTimeMillis();
+            Log.d("Photo", "Response time: " + (dataReceiveEnd-dataSendStart));
 	    	mText = modifiedSentence;
 	    	
 		    outToServer.flush();
