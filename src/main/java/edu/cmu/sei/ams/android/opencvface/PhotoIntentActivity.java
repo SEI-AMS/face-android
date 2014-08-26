@@ -229,7 +229,7 @@ public class PhotoIntentActivity extends Activity {
             Log.d("Photo", "Received result from server.");
 	    	Log.v("Photo", "FROM SERVER 2 : " + modifiedSentence);
             long dataReceiveEnd = System.currentTimeMillis();
-            Log.d("Photo", "Response time: " + (dataReceiveEnd-dataSendStart));
+            Log.d("Photo", "Response time: " + (dataReceiveEnd-dataSendStart) + " ms");
 	    	mText = modifiedSentence;
 	    	
 		    outToServer.flush();
