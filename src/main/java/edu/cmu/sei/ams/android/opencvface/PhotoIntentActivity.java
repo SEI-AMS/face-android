@@ -67,7 +67,9 @@ public class PhotoIntentActivity extends Activity {
 	private int portNumber;
 	
 	public static final String INTENT_EXTRA_APP_SERVER_IP_ADDRESS = "edu.cmu.sei.cloudlet.appServerIp";
-	public static final String INTENT_EXTRA_APP_SERVER_PORT ="edu.cmu.sei.cloudlet.appServerPort";	
+	public static final String INTENT_EXTRA_APP_SERVER_PORT ="edu.cmu.sei.cloudlet.appServerPort";
+
+    private static final String SERVICE_ID = "edu.cmu.sei.ams.face_rec_service_opencv";
 	
 	/* Photo album for this application */
 	private String getAlbumName() {
@@ -285,7 +287,7 @@ public class PhotoIntentActivity extends Activity {
         else
         {
 
-            new FindCloudletAndStartService(this, "edu.cmu.sei.ams.face_rec_service_opencv", new CpuBasedRanker(), new CloudletCallback<ServiceVM>()
+            new FindCloudletAndStartService(this, this.SERVICE_ID, new CpuBasedRanker(), new CloudletCallback<ServiceVM>()
             {
                 @Override
                 public void handle(ServiceVM result)
