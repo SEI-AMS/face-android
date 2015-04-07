@@ -18,7 +18,6 @@ import java.util.List;
 import android.app.Activity;
 import android.content.Context;
 import android.content.Intent;
-import android.content.SharedPreferences;
 import android.content.pm.PackageManager;
 import android.content.pm.ResolveInfo;
 import android.graphics.Bitmap;
@@ -28,7 +27,6 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.StrictMode;
-import android.preference.PreferenceManager;
 import android.provider.MediaStore;
 import android.util.Log;
 import android.view.View;
@@ -40,6 +38,7 @@ import edu.cmu.sei.ams.cloudlet.android.FindCloudletAndStartService;
 import edu.cmu.sei.ams.cloudlet.android.FindCloudletByRankAsyncTask;
 import edu.cmu.sei.ams.cloudlet.android.StartServiceAsyncTask;
 import edu.cmu.sei.ams.cloudlet.rank.CpuBasedRanker;
+import edu.cmu.sei.ams.cloudlet.android.ServiceConnectionInfo;
 
 
 public class PhotoIntentActivity extends Activity {
@@ -63,11 +62,7 @@ public class PhotoIntentActivity extends Activity {
 	private AlbumStorageDirFactory mAlbumStorageDirFactory = null;
 	private ClientThread clientTalker = null;
 
-	private String ipAddress;
-	private int portNumber;
-	
-	public static final String INTENT_EXTRA_APP_SERVER_IP_ADDRESS = "edu.cmu.sei.cloudlet.appServerIp";
-	public static final String INTENT_EXTRA_APP_SERVER_PORT ="edu.cmu.sei.cloudlet.appServerPort";
+    private ServiceConnectionInfo connectionInfo = new ServiceConnectionInfo();
 
     private static final String SERVICE_ID = "edu.cmu.sei.ams.face_rec_service_opencv";
 	
@@ -208,8 +203,8 @@ public class PhotoIntentActivity extends Activity {
 		
 	    try {
 	    	// Open the socket.
-	    	Log.v("Photo", "Connecting to " + ipAddress + ":" + portNumber);
-			clientSocket = new Socket(ipAddress, portNumber);
+	    	Log.v("Photo", "Connecting to " + connectionInfo.getIpAddress() + ":" + connectionInfo.getPortNumber());
+			clientSocket = new Socket(connectionInfo.getIpAddress(), connectionInfo.getPortNumber());
 		    DataOutputStream outToServer = new DataOutputStream(clientSocket.getOutputStream());
 		    BufferedReader inFromServer = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
 
@@ -256,33 +251,45 @@ public class PhotoIntentActivity extends Activity {
 	/** Called when the activity is first created. */
 	@Override
 	public void onCreate(Bundle savedInstanceState) {
-		super.onCreate(savedInstanceState);
-		setContentView(R.layout.main);
+        super.onCreate(savedInstanceState);
+        setContentView(R.layout.main);
 
-		mTextView = (TextView) findViewById(R.id.textView1);
-		mImageView = (ImageView) findViewById(R.id.imageView1);
-		mImageBitmap = null;
+        mTextView = (TextView) findViewById(R.id.textView1);
+        mImageView = (ImageView) findViewById(R.id.imageView1);
+        mImageBitmap = null;
 
-		Button picSBtn = (Button) findViewById(R.id.btnIntendS);
-		setBtnListenerOrDisable( 
-				picSBtn, 
-				mTakePicSOnClickListener,
-				MediaStore.ACTION_IMAGE_CAPTURE
-		);
-		
-		if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.FROYO) {
-			mAlbumStorageDirFactory = new FroyoAlbumDirFactory();
-		} else {
-			mAlbumStorageDirFactory = new BaseAlbumDirFactory();
-		}
-		
-		StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
-		StrictMode.setThreadPolicy(policy); 
+        Button picSBtn = (Button) findViewById(R.id.btnIntendS);
+        setBtnListenerOrDisable(
+                picSBtn,
+                mTakePicSOnClickListener,
+                MediaStore.ACTION_IMAGE_CAPTURE
+        );
 
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.FROYO) {
+            mAlbumStorageDirFactory = new FroyoAlbumDirFactory();
+        } else {
+            mAlbumStorageDirFactory = new BaseAlbumDirFactory();
+        }
 
-		if (storeServerConnectionInfo(getIntent()))
+        StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
+        StrictMode.setThreadPolicy(policy);
+
+    }
+
+    @Override
+    protected void onResume()
+    {
+        findService();
+
+        super.onResume();
+    }
+
+    protected void findService()
+    {
+		if (this.connectionInfo.loadFromIntent(getIntent()))
         {
-            loadPreferences();
+            this.connectionInfo.storeIntoPreferences(this, getString( R.string.pref_ipaddress),
+                    getString( R.string.pref_portnumber));
         }
         else
         {
@@ -300,62 +307,15 @@ public class PhotoIntentActivity extends Activity {
                         return;
                     }
                     Toast.makeText(PhotoIntentActivity.this, "Located a cloudlet to use!", Toast.LENGTH_LONG).show();
-                    SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences(PhotoIntentActivity.this);
-                    SharedPreferences.Editor prefsEditor = prefs.edit();
-                    prefsEditor.putString(PhotoIntentActivity.this.getString(R.string.pref_ipaddress), result.getAddress().getHostAddress());
-                    prefsEditor.putString(PhotoIntentActivity.this.getString(R.string.pref_portnumber), "" + result.getPort());
-                    prefsEditor.commit();
-                    loadPreferences();
+                    connectionInfo.setIpAddress(result.getAddress().getHostAddress());
+                    connectionInfo.setPortNumber(result.getPort());
+                    connectionInfo.storeIntoPreferences(PhotoIntentActivity.this,
+                            PhotoIntentActivity.this.getString(R.string.pref_ipaddress),
+                            PhotoIntentActivity.this.getString(R.string.pref_portnumber));
                 }
             }).execute();
         }
 	}
-	
-	public void loadPreferences()
-	{
-		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences( this );
-		this.ipAddress = prefs.getString(getString(R.string.pref_ipaddress), getString(R.string.default_ipaddress));
-		this.portNumber = Integer.parseInt( prefs.getString(getString( R.string.pref_portnumber), getString(R.string.default_portnumber)) );
-	}
-	
-	private boolean storeServerConnectionInfo(Intent intent)
-	{
-		Log.v("Photo", "storeServerConnectionInfo");
-		if(intent == null)
-			return false;
-		
-		Bundle extras = intent.getExtras();
-
-        if(extras != null)
-        {
-        	// Get the values from the intent.
-        	String serverIPAddress = extras.getString(INTENT_EXTRA_APP_SERVER_IP_ADDRESS);
-        	int cloudletPort = extras.getInt(INTENT_EXTRA_APP_SERVER_PORT); 
-        	
-        	// Only store the IP and port in the preferences file if they are valid.
-        	boolean validExtras = serverIPAddress != null && cloudletPort != 0;
-        	if(validExtras)
-        	{
-        		Log.v("Photo", "IP:   " + serverIPAddress);
-        		Log.v("Photo", "Port: " + cloudletPort);
-        		SharedPreferences prefs = PreferenceManager.getDefaultSharedPreferences( this );
-        		SharedPreferences.Editor prefsEditor = prefs.edit();
-        		prefsEditor.putString(getString(R.string.pref_ipaddress), serverIPAddress);
-        		prefsEditor.putString(getString(R.string.pref_portnumber), String.valueOf(cloudletPort));
-        		prefsEditor.commit();
-        		
-            	// Remove the extras so that they won't be used again each time we jump back to this activity.
-            	intent.removeExtra(INTENT_EXTRA_APP_SERVER_IP_ADDRESS);
-            	intent.removeExtra(INTENT_EXTRA_APP_SERVER_PORT);
-                return true;
-        	}        	
-        }
-        else
-        {
-			System.err.println("Server IP address and Port not received from Intent. Values from preferences will not be changed.");
-        }
-        return false;
-	}	
 
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
