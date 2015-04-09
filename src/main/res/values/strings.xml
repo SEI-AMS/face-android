@@ -7,8 +7,10 @@
     <string name="btnIntendV">Take Video</string>
     <string name="cannot">Cannot</string>
     <string name="album_name">Faces</string>
-    <string name="default_ipaddress">192.168.168.194</string>
+    <string name="default_ipaddress">192.168.168.2</string>
     <string name="default_portnumber">6789</string>
+    <string name="menu_settings">Settings</string>
+    <string name="menu_find_cloudlet">Find Cloudlet</string>
     <string name="pref_ipaddress">ipaddress</string>
     <string name="pref_portnumber">portnumber</string>
 </resources>

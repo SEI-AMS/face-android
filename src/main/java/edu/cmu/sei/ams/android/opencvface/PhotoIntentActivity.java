@@ -29,6 +29,8 @@ import android.os.Environment;
 import android.os.StrictMode;
 import android.provider.MediaStore;
 import android.util.Log;
+import android.view.Menu;
+import android.view.MenuItem;
 import android.view.View;
 import android.widget.*;
 import edu.cmu.sei.ams.cloudlet.Cloudlet;
@@ -44,7 +46,10 @@ import edu.cmu.sei.ams.cloudlet.android.ServiceConnectionInfo;
 public class PhotoIntentActivity extends Activity {
 
 	private static final int ACTION_TAKE_PHOTO_S = 2;
-	
+
+    public static final int MENU_ID_SETTINGS = 92189;
+    public static final int MENU_ID_FIND_CLOUDLET = 92190;
+
 	private static final String BITMAP_STORAGE_KEY = "viewbitmap";
 	private static final String IMAGEVIEW_VISIBILITY_STORAGE_KEY = "imageviewvisibility";
 	private ImageView mImageView;
@@ -274,48 +279,87 @@ public class PhotoIntentActivity extends Activity {
         StrictMode.ThreadPolicy policy = new StrictMode.ThreadPolicy.Builder().permitAll().build();
         StrictMode.setThreadPolicy(policy);
 
+        // Load the service info from an intent, or try to find a cloudlet.
+        if(!findService())
+            findCloudlet();
+
+    }
+
+
+    @Override
+    public boolean onCreateOptionsMenu(Menu menu)
+    {
+        menu.add(0, MENU_ID_SETTINGS, 0, getString( R.string.menu_settings) );
+        menu.add(0, MENU_ID_FIND_CLOUDLET, 1, getString( R.string.menu_find_cloudlet) );
+        return super.onCreateOptionsMenu(menu);
+    }
+
+    @Override
+    public boolean onMenuItemSelected(int featureId, MenuItem item)
+    {
+        switch( item.getItemId() )
+        {
+            case MENU_ID_SETTINGS:
+                startActivity( new Intent( PhotoIntentActivity.this, PreferenceActivity.class) );
+                break;
+            case MENU_ID_FIND_CLOUDLET:
+                findCloudlet();
+                break;
+            default:
+                break;
+        }
+        return super.onMenuItemSelected(featureId, item);
     }
 
     @Override
     protected void onResume()
     {
+        this.connectionInfo.loadFromPreferences(this, getString( R.string.pref_ipaddress),
+                getString( R.string.pref_portnumber));
+
+        // When resuming, always try to get info from an intent, in case we were called that way.
         findService();
 
         super.onResume();
     }
 
-    protected void findService()
+    protected boolean findService()
     {
 		if (this.connectionInfo.loadFromIntent(getIntent()))
         {
             this.connectionInfo.storeIntoPreferences(this, getString( R.string.pref_ipaddress),
                     getString( R.string.pref_portnumber));
+            return true;
         }
-        else
-        {
 
-            new FindCloudletAndStartService(this, this.SERVICE_ID, new CpuBasedRanker(), new CloudletCallback<ServiceVM>()
-            {
-                @Override
-                public void handle(ServiceVM result)
-                {
-                    Log.v("FACE", "GOT SERVICE RESULT: " + result.getInstanceId());
-
-                    if (result == null)
-                    {
-                        Toast.makeText(PhotoIntentActivity.this, "Failed to locate a cloudlet for this app", Toast.LENGTH_LONG).show();
-                        return;
-                    }
-                    Toast.makeText(PhotoIntentActivity.this, "Located a cloudlet to use!", Toast.LENGTH_LONG).show();
-                    connectionInfo.setIpAddress(result.getAddress().getHostAddress());
-                    connectionInfo.setPortNumber(result.getPort());
-                    connectionInfo.storeIntoPreferences(PhotoIntentActivity.this,
-                            PhotoIntentActivity.this.getString(R.string.pref_ipaddress),
-                            PhotoIntentActivity.this.getString(R.string.pref_portnumber));
-                }
-            }).execute();
-        }
+        return false;
 	}
+
+    protected void findCloudlet()
+    {
+        // Only enter here if we are not returning from the Picture activity.
+        new FindCloudletAndStartService(this, this.SERVICE_ID, new CpuBasedRanker(), new CloudletCallback<ServiceVM>()
+        {
+            @Override
+            public void handle(ServiceVM result)
+            {
+                if (result == null)
+                {
+                    Toast.makeText(PhotoIntentActivity.this, "Failed to locate a cloudlet for this app", Toast.LENGTH_LONG).show();
+                    return;
+                }
+
+                Log.v("FACE", "GOT SERVICE RESULT: " + result.getInstanceId());
+
+                Toast.makeText(PhotoIntentActivity.this, "Located a cloudlet to use!", Toast.LENGTH_LONG).show();
+                connectionInfo.setIpAddress(result.getAddress().getHostAddress());
+                connectionInfo.setPortNumber(result.getPort());
+                connectionInfo.storeIntoPreferences(PhotoIntentActivity.this,
+                        PhotoIntentActivity.this.getString(R.string.pref_ipaddress),
+                        PhotoIntentActivity.this.getString(R.string.pref_portnumber));
+            }
+        }).execute();
+    }
 
 	@Override
 	protected void onActivityResult(int requestCode, int resultCode, Intent data) {
